@@ -369,7 +369,7 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
             [shippingAddress setObject:postalAddess.postalCode forKey:@"postalCode"];
         }
 
-        [paymentResponse setObject:shippingAddress forKey:@"shippingAddress"];
+        [paymentResponse setObject:shippingAddress forKey:@"userAddress"];
     }
     
     if (token) {
