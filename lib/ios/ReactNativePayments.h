@@ -15,9 +15,11 @@
 @property (nonatomic, strong) RCTResponseSenderBlock callback;
 @property (nonatomic, strong) PKPaymentRequest *paymentRequest;
 @property (nonatomic, strong) NSDictionary *initialOptions;
+@property (nonatomic, strong) NSDictionary *countryData;
 @property (nonatomic, strong) GatewayManager *gatewayManager;
 @property BOOL *hasGatewayParameters;
 @property (nonatomic, strong) PKPaymentAuthorizationViewController *viewController;
+@property (nonatomic, copy) void (^resultCompletion)(PKPaymentAuthorizationResult);
 @property (nonatomic, copy) void (^completion)(PKPaymentAuthorizationStatus);
 @property (nonatomic, copy) void (^shippingContactCompletion)(PKPaymentAuthorizationStatus, NSArray<PKShippingMethod *> * _Nonnull, NSArray<PKPaymentSummaryItem *> * _Nonnull);
 @property (nonatomic, copy) void (^shippingMethodCompletion)(PKPaymentAuthorizationStatus, NSArray<PKPaymentSummaryItem *> * _Nonnull);

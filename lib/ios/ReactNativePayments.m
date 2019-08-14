@@ -27,6 +27,7 @@ RCT_EXPORT_MODULE()
 
 RCT_EXPORT_METHOD(createPaymentRequest: (NSDictionary *)methodData
                   details: (NSDictionary *)details
+                  countryData: (NSDictionary *) countryData
                   options: (NSDictionary *)options
                   callback: (RCTResponseSenderBlock)callback)
 {
@@ -52,6 +53,8 @@ RCT_EXPORT_METHOD(createPaymentRequest: (NSDictionary *)methodData
     
     // Set options so that we can later access it.
     self.initialOptions = options;
+    
+    self.countryData = countryData;
     
     callback(@[[NSNull null]]);
 }
@@ -79,12 +82,20 @@ RCT_EXPORT_METHOD(abort: (RCTResponseSenderBlock)callback)
 RCT_EXPORT_METHOD(complete: (NSString *)paymentStatus
                   callback: (RCTResponseSenderBlock)callback)
 {
-    if ([paymentStatus isEqualToString: @"success"]) {
-        self.completion(PKPaymentAuthorizationStatusSuccess);
-    } else {
-        self.completion(PKPaymentAuthorizationStatusFailure);
+    if(@available(iOS 11.0, *)){
+        if ([paymentStatus isEqualToString: @"success"]) {
+            self.resultCompletion([[PKPaymentAuthorizationResult alloc] initWithStatus:PKPaymentAuthorizationStatusSuccess errors:nil]);
+        } else {
+            self.resultCompletion([[PKPaymentAuthorizationResult alloc] initWithStatus:PKPaymentAuthorizationStatusFailure errors:nil]);
+        }
     }
-    
+    else {
+        if ([paymentStatus isEqualToString: @"success"]) {
+            self.completion(PKPaymentAuthorizationStatusSuccess);
+        } else {
+            self.completion(PKPaymentAuthorizationStatusFailure);
+        }
+    }
     callback(@[[NSNull null]]);
 }
 
@@ -146,22 +157,112 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
     
 }
 
-// DELEGATES
-// ---------------
+-(void)paymentAuthorizationViewController:(PKPaymentAuthorizationViewController *)controller didAuthorizePayment:(PKPayment *)payment handler:(void (^)(PKPaymentAuthorizationResult * _Nonnull))completion API_AVAILABLE(ios(11.0)){
+    
+    NSString *countryName = payment.shippingContact.postalAddress.country;
+    NSString *stateName = payment.shippingContact.postalAddress.state;
+    
+    NSString *currentCountryName = [self.countryData objectForKey:@"countryName"];
+    NSArray *currentCountryStates = [self.countryData objectForKey:@"state"];
+    
+    NSString *phoneNumber = [payment.shippingContact.phoneNumber.stringValue stringByReplacingOccurrencesOfString:@" " withString:@""];
+    NSString *mobileCountryCode = [NSString stringWithFormat:@"%@", [self.countryData objectForKey:@"mobileCountryCode"]];
+    NSString *mobileLocalCode = [NSString stringWithFormat:@"%@", [self.countryData objectForKey:@"mobileLocalCode"]];
+    NSInteger mobileLocalNumberLength = [[self.countryData objectForKey:@"mobileLocalNumberLength"] integerValue];
+    
+    NSMutableArray<NSError*> *errors = [[NSMutableArray alloc] init];
+    if(![countryName.lowercaseString isEqualToString:currentCountryName.lowercaseString]){
+        [errors addObject:[PKPaymentRequest paymentShippingAddressInvalidErrorWithKey:CNPostalAddressCountryKey localizedDescription:@"Selected country is not supported"]];
+    }
+    
+    if(currentCountryStates && [currentCountryStates isKindOfClass:[NSArray class]]){
+        BOOL isInvalidState = [currentCountryStates filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *  _Nullable  evaluatedObject, NSDictionary<NSString *,id> * _Nullable bindings) {
+            NSString *evaluatesStateName = evaluatedObject[@"StateName"];
+            return [stateName.lowercaseString isEqualToString:evaluatesStateName.lowercaseString];
+        }]].count == 0;
+        
+        if(isInvalidState){
+            [errors addObject:[PKPaymentRequest paymentShippingAddressInvalidErrorWithKey:CNPostalAddressStateKey localizedDescription:@"State is invalid"]];
+        }
+    }
+    
+    __block NSInteger maxMobileLocalCodeLength = 0;
+    
+    NSArray *mobileLocalCodes;
+    if(mobileLocalCode && [mobileLocalCode length] > 0){
+        mobileLocalCodes = [mobileLocalCode componentsSeparatedByString:@","];
+        [mobileLocalCodes enumerateObjectsUsingBlock:^(NSString  * _Nonnull mobileLocalCode, NSUInteger idx, BOOL * _Nonnull stop) {
+            
+            if(mobileLocalCode.length > maxMobileLocalCodeLength){
+                maxMobileLocalCodeLength = mobileLocalCode.length;
+            }
+        }];
+    }
+    
+    NSInteger mobileCountryCodeLength = [mobileCountryCode length];
+    NSInteger maxMobileLength = mobileCountryCodeLength + maxMobileLocalCodeLength + mobileLocalNumberLength + 1;
+    
+    NSString *firstChar =  [phoneNumber substringWithRange: NSMakeRange(0, 1)];
+    
+    NSString *countryCodeNumber =  @"";
+    if([phoneNumber length] > mobileCountryCodeLength + 1){
+        countryCodeNumber = [phoneNumber substringWithRange: NSMakeRange(1, mobileCountryCodeLength)];
+    }
+    NSString *localCodeNumber = @"";
+    if([phoneNumber length] > (mobileCountryCodeLength + 1 + maxMobileLocalCodeLength)) {
+        localCodeNumber = [phoneNumber substringWithRange: NSMakeRange(mobileCountryCodeLength + 1, maxMobileLocalCodeLength)];
+    }
+    
+    BOOL isValidLocalCode = [mobileLocalCodes containsObject:localCodeNumber];
+    
+    if(([phoneNumber length] < maxMobileLength) || !([firstChar isEqualToString:@"+"] && [countryCodeNumber isEqualToString:mobileCountryCode] && isValidLocalCode && [phoneNumber length] == maxMobileLength)){
+        
+        NSString *desc = [NSString stringWithFormat:@"Phone number must start with +%@(%@)", mobileCountryCode, mobileLocalCode];
+        
+        NSInteger i = 0;
+        while(i < mobileLocalNumberLength) {
+            desc = [desc stringByAppendingFormat:@"X"];
+            i++;
+        }
+        [errors addObject:[PKPaymentRequest paymentContactInvalidErrorWithContactField:PKContactFieldPhoneNumber localizedDescription: desc]];
+    }
+    
+    if([errors count] > 0){
+        completion([[PKPaymentAuthorizationResult alloc] initWithStatus:PKPaymentAuthorizationStatusFailure errors:errors]);
+    }
+    else {
+        // Store completion for later use
+        self.resultCompletion = completion;
+        
+        if (self.hasGatewayParameters) {
+            [self.gatewayManager createTokenWithPayment:payment completion:^(NSString * _Nullable token, NSError * _Nullable error) {
+                if (error) {
+                    [self handleGatewayError:error];
+                    return;
+                }
+                
+                [self handleUserAccept:payment paymentToken:token];
+            }];
+        } else {
+            [self handleUserAccept:payment paymentToken:nil];
+        }
+    }
+}
+
 - (void) paymentAuthorizationViewController:(PKPaymentAuthorizationViewController *)controller
                         didAuthorizePayment:(PKPayment *)payment
                                  completion:(void (^)(PKPaymentAuthorizationStatus))completion
 {
-    // Store completion for later use
+
     self.completion = completion;
-    
+
     if (self.hasGatewayParameters) {
         [self.gatewayManager createTokenWithPayment:payment completion:^(NSString * _Nullable token, NSError * _Nullable error) {
             if (error) {
                 [self handleGatewayError:error];
                 return;
             }
-            
+
             [self handleUserAccept:payment paymentToken:token];
         }];
     } else {
@@ -175,6 +276,8 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
                    didSelectShippingContact:(PKContact *)contact
                                  completion:(nonnull void (^)(PKPaymentAuthorizationStatus, NSArray<PKShippingMethod *> * _Nonnull, NSArray<PKPaymentSummaryItem *> * _Nonnull))completion
 {
+    
+    
     self.shippingContactCompletion = completion;
     
     CNPostalAddress *postalAddress = contact.postalAddress;
@@ -367,6 +470,16 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
             [shippingAddress setObject:postalAddess.city forKey:@"city"];
             [shippingAddress setObject:postalAddess.state forKey:@"state"];
             [shippingAddress setObject:postalAddess.postalCode forKey:@"postalCode"];
+            [shippingAddress setObject:postalAddess.country forKey:@"country"];
+            [shippingAddress setObject:postalAddess.ISOCountryCode forKey:@"countryCode"];
+        }
+        
+        [shippingAddress setObject:shippingContact.emailAddress forKey:@"email"];
+
+        
+        CNPhoneNumber *phoneNumber = shippingContact.phoneNumber;
+        if (postalAddess) {
+            [shippingAddress setObject:phoneNumber.stringValue forKey:@"phoneNumber"];
         }
 
         [paymentResponse setObject:shippingAddress forKey:@"userAddress"];
