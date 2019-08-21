@@ -14,7 +14,7 @@ RCT_EXPORT_MODULE()
 
 + (BOOL)requiresMainQueueSetup
 {
-  return YES;
+    return YES;
 }
 
 - (NSDictionary *)constantsToExport
@@ -166,7 +166,6 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
     NSArray *currentCountryStates = [self.countryData objectForKey:@"state"];
     
     NSString *phoneNumber = [payment.shippingContact.phoneNumber.stringValue stringByReplacingOccurrencesOfString:@" " withString:@""];
-    NSString *mobileCountryCode = [NSString stringWithFormat:@"%@", [self.countryData objectForKey:@"mobileCountryCode"]];
     NSString *mobileLocalCode = [NSString stringWithFormat:@"%@", [self.countryData objectForKey:@"mobileLocalCode"]];
     NSInteger mobileLocalNumberLength = [[self.countryData objectForKey:@"mobileLocalNumberLength"] integerValue];
     
@@ -192,32 +191,23 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
     if(mobileLocalCode && [mobileLocalCode length] > 0){
         mobileLocalCodes = [mobileLocalCode componentsSeparatedByString:@","];
         [mobileLocalCodes enumerateObjectsUsingBlock:^(NSString  * _Nonnull mobileLocalCode, NSUInteger idx, BOOL * _Nonnull stop) {
-            
             if(mobileLocalCode.length > maxMobileLocalCodeLength){
                 maxMobileLocalCodeLength = mobileLocalCode.length;
             }
         }];
     }
     
-    NSInteger mobileCountryCodeLength = [mobileCountryCode length];
-    NSInteger maxMobileLength = mobileCountryCodeLength + maxMobileLocalCodeLength + mobileLocalNumberLength + 1;
-    
-    NSString *firstChar =  [phoneNumber substringWithRange: NSMakeRange(0, 1)];
-    
-    NSString *countryCodeNumber =  @"";
-    if([phoneNumber length] > mobileCountryCodeLength + 1){
-        countryCodeNumber = [phoneNumber substringWithRange: NSMakeRange(1, mobileCountryCodeLength)];
-    }
+    NSInteger maxMobileLength = maxMobileLocalCodeLength + mobileLocalNumberLength;
     NSString *localCodeNumber = @"";
-    if([phoneNumber length] > (mobileCountryCodeLength + 1 + maxMobileLocalCodeLength)) {
-        localCodeNumber = [phoneNumber substringWithRange: NSMakeRange(mobileCountryCodeLength + 1, maxMobileLocalCodeLength)];
+    if([phoneNumber length] > maxMobileLocalCodeLength) {
+        localCodeNumber = [phoneNumber substringWithRange: NSMakeRange(0, maxMobileLocalCodeLength)];
     }
     
     BOOL isValidLocalCode = [mobileLocalCodes containsObject:localCodeNumber];
     
-    if(([phoneNumber length] < maxMobileLength) || !([firstChar isEqualToString:@"+"] && [countryCodeNumber isEqualToString:mobileCountryCode] && isValidLocalCode && [phoneNumber length] == maxMobileLength)){
+    if(([phoneNumber length] < maxMobileLength) || !( isValidLocalCode && [phoneNumber length] == maxMobileLength)){
         
-        NSString *desc = [NSString stringWithFormat:@"Phone number must start with +%@(%@)", mobileCountryCode, mobileLocalCode];
+        NSString *desc = [NSString stringWithFormat:@"Phone number must start with (%@)", mobileLocalCode];
         
         NSInteger i = 0;
         while(i < mobileLocalNumberLength) {
@@ -253,16 +243,16 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
                         didAuthorizePayment:(PKPayment *)payment
                                  completion:(void (^)(PKPaymentAuthorizationStatus))completion
 {
-
+    
     self.completion = completion;
-
+    
     if (self.hasGatewayParameters) {
         [self.gatewayManager createTokenWithPayment:payment completion:^(NSString * _Nullable token, NSError * _Nullable error) {
             if (error) {
                 [self handleGatewayError:error];
                 return;
             }
-
+            
             [self handleUserAccept:payment paymentToken:token];
         }];
     } else {
@@ -448,13 +438,13 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
     NSMutableDictionary *paymentResponse = [[NSMutableDictionary alloc]initWithCapacity:3];
     [paymentResponse setObject:transactionId forKey:@"transactionIdentifier"];
     [paymentResponse setObject:paymentData forKey:@"paymentData"];
-                
+    
     PKContact *shippingContact = payment.shippingContact;
     if(shippingContact) {
-
+        
         NSMutableDictionary *shippingAddress = [NSMutableDictionary new];
         NSPersonNameComponents *presonNameComponent = shippingContact.name;
-
+        
         if (presonNameComponent) {
             [shippingAddress setObject:presonNameComponent.namePrefix forKey:@"namePrefix"];
             [shippingAddress setObject:presonNameComponent.nameSuffix forKey:@"nameSuffix"];
@@ -463,25 +453,27 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
             [shippingAddress setObject:presonNameComponent.nickname forKey:@"nickname"];
             [shippingAddress setObject:presonNameComponent.familyName forKey:@"familyName"];
         }
-
+        
         CNPostalAddress *postalAddess = shippingContact.postalAddress;
         if (postalAddess) {
             [shippingAddress setObject:postalAddess.street forKey:@"street"];
+            [shippingAddress setObject:postalAddess.subAdministrativeArea forKey:@"subAdministrativeAreaπ"];
             [shippingAddress setObject:postalAddess.city forKey:@"city"];
             [shippingAddress setObject:postalAddess.state forKey:@"state"];
             [shippingAddress setObject:postalAddess.postalCode forKey:@"postalCode"];
             [shippingAddress setObject:postalAddess.country forKey:@"country"];
             [shippingAddress setObject:postalAddess.ISOCountryCode forKey:@"countryCode"];
+            
         }
         
         [shippingAddress setObject:shippingContact.emailAddress forKey:@"email"];
-
+        
         
         CNPhoneNumber *phoneNumber = shippingContact.phoneNumber;
         if (postalAddess) {
-            [shippingAddress setObject:phoneNumber.stringValue forKey:@"phoneNumber"];
+            [shippingAddress setObject:[phoneNumber.stringValue stringByReplacingOccurrencesOfString:@" " withString:@""] forKey:@"phoneNumber"];
         }
-
+        
         [paymentResponse setObject:shippingAddress forKey:@"userAddress"];
     }
     
@@ -504,3 +496,4 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
 }
 
 @end
+
