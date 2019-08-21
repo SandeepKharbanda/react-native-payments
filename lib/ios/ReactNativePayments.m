@@ -165,7 +165,12 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
     NSString *currentCountryName = [self.countryData objectForKey:@"countryName"];
     NSArray *currentCountryStates = [self.countryData objectForKey:@"state"];
     
-    NSString *phoneNumber = [payment.shippingContact.phoneNumber.stringValue stringByReplacingOccurrencesOfString:@" " withString:@""];
+    NSString *phoneNumber = payment.shippingContact.phoneNumber.stringValue;
+    NSMutableCharacterSet *characterSet =
+    [NSMutableCharacterSet characterSetWithCharactersInString:@"()- "];
+    NSArray *arrayOfComponents = [phoneNumber componentsSeparatedByCharactersInSet:characterSet];
+    phoneNumber = [arrayOfComponents componentsJoinedByString:@""];
+    
     NSString *mobileLocalCode = [NSString stringWithFormat:@"%@", [self.countryData objectForKey:@"mobileLocalCode"]];
     NSInteger mobileLocalNumberLength = [[self.countryData objectForKey:@"mobileLocalNumberLength"] integerValue];
     
@@ -469,9 +474,14 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
         [shippingAddress setObject:shippingContact.emailAddress forKey:@"email"];
         
         
-        CNPhoneNumber *phoneNumber = shippingContact.phoneNumber;
-        if (postalAddess) {
-            [shippingAddress setObject:[phoneNumber.stringValue stringByReplacingOccurrencesOfString:@" " withString:@""] forKey:@"phoneNumber"];
+        CNPhoneNumber *shippingContactPhoneNumber = shippingContact.phoneNumber;
+        if (shippingContactPhoneNumber) {
+            NSString *phoneNumber = shippingContactPhoneNumber.stringValue;
+            NSMutableCharacterSet *characterSet =
+            [NSMutableCharacterSet characterSetWithCharactersInString:@"()- "];
+            NSArray *arrayOfComponents = [phoneNumber componentsSeparatedByCharactersInSet:characterSet];
+            phoneNumber = [arrayOfComponents componentsJoinedByString:@""];
+            [shippingAddress setObject:phoneNumber forKey:@"phoneNumber"];
         }
         
         [paymentResponse setObject:shippingAddress forKey:@"userAddress"];
