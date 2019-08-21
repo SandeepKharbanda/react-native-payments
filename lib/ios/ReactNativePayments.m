@@ -175,7 +175,7 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
         [errors addObject:[PKPaymentRequest paymentShippingAddressInvalidErrorWithKey:CNPostalAddressCountryKey localizedDescription:@"Selected country is not supported"]];
     }
     
-    if(currentCountryStates && [currentCountryStates isKindOfClass:[NSArray class]]){
+    if(stateName && [stateName length] > 0 && currentCountryStates && [currentCountryStates isKindOfClass:[NSArray class]]){
         BOOL isInvalidState = [currentCountryStates filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *  _Nullable  evaluatedObject, NSDictionary<NSString *,id> * _Nullable bindings) {
             NSString *evaluatesStateName = evaluatedObject[@"StateName"];
             return [stateName.lowercaseString isEqualToString:evaluatesStateName.lowercaseString];
