@@ -440,7 +440,7 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
 {
     NSString *transactionId = payment.token.transactionIdentifier;
     NSString *paymentData = [[NSString alloc] initWithData:payment.token.paymentData encoding:NSUTF8StringEncoding];
-    NSMutableDictionary *paymentResponse = [[NSMutableDictionary alloc]initWithCapacity:3];
+    NSMutableDictionary *paymentResponse = [[NSMutableDictionary alloc] init];
     [paymentResponse setObject:transactionId forKey:@"transactionIdentifier"];
     [paymentResponse setObject:paymentData forKey:@"paymentData"];
     
@@ -498,18 +498,13 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
             [paymentMethodResponse setObject:activationState forKey:@"activationState"];
         }
         
-        
         [paymentResponse setObject:paymentMethodResponse forKey:@"paymentMethod"];
-        
     }
-    
     
     PKContact *shippingContact = payment.shippingContact;
     if(shippingContact) {
-        
         NSMutableDictionary *shippingAddress = [NSMutableDictionary new];
         NSPersonNameComponents *presonNameComponent = shippingContact.name;
-        
         if (presonNameComponent) {
             [shippingAddress setObject:presonNameComponent.namePrefix forKey:@"namePrefix"];
             [shippingAddress setObject:presonNameComponent.nameSuffix forKey:@"nameSuffix"];
@@ -518,21 +513,18 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
             [shippingAddress setObject:presonNameComponent.nickname forKey:@"nickname"];
             [shippingAddress setObject:presonNameComponent.familyName forKey:@"familyName"];
         }
-        
         CNPostalAddress *postalAddess = shippingContact.postalAddress;
         if (postalAddess) {
             [shippingAddress setObject:postalAddess.street forKey:@"street"];
-            [shippingAddress setObject:postalAddess.subAdministrativeArea forKey:@"subAdministrativeAreaπ"];
+            [shippingAddress setObject:postalAddess.subAdministrativeArea forKey:@"subAdministrativeArea"];
             [shippingAddress setObject:postalAddess.city forKey:@"city"];
             [shippingAddress setObject:postalAddess.state forKey:@"state"];
             [shippingAddress setObject:postalAddess.postalCode forKey:@"postalCode"];
             [shippingAddress setObject:postalAddess.country forKey:@"country"];
             [shippingAddress setObject:postalAddess.ISOCountryCode forKey:@"countryCode"];
-            
         }
         
         [shippingAddress setObject:shippingContact.emailAddress forKey:@"email"];
-        
         
         CNPhoneNumber *shippingContactPhoneNumber = shippingContact.phoneNumber;
         if (shippingContactPhoneNumber) {
