@@ -444,6 +444,66 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
     [paymentResponse setObject:transactionId forKey:@"transactionIdentifier"];
     [paymentResponse setObject:paymentData forKey:@"paymentData"];
     
+    PKPaymentMethod *paymentMethod = payment.token.paymentMethod;
+    if(paymentMethod){
+        NSMutableDictionary *paymentMethodResponse = [[NSMutableDictionary alloc]init];
+        [paymentMethodResponse setObject:paymentMethod.displayName forKey:@"displayName"];
+        [paymentMethodResponse setObject:paymentMethod.network forKey:@"network"];
+        
+        NSString *type = @"";
+        switch (paymentMethod.type) {
+            case PKPaymentMethodTypeDebit:
+                type = @"debit";
+                break;
+            case PKPaymentMethodTypeCredit:
+                type = @"credit";
+                break;
+            case PKPaymentMethodTypePrepaid:
+                type = @"prepaid";
+                break;
+            case PKPaymentMethodTypeStore:
+                type = @"store";
+                break;
+            default:
+                type = @"unknown";
+                break;
+        }
+        [paymentMethodResponse setObject:type forKey:@"type"];
+        
+        PKPaymentPass *paymentPass = paymentMethod.paymentPass;
+        if(paymentPass){
+            [paymentMethodResponse setObject:paymentPass.primaryAccountIdentifier forKey:@"primaryAccountIdentifier"];
+            [paymentMethodResponse setObject:paymentPass.primaryAccountNumberSuffix forKey:@"primaryAccountNumberSuffix"];
+            [paymentMethodResponse setObject:paymentPass.deviceAccountIdentifier forKey:@"deviceAccountIdentifier"];
+            [paymentMethodResponse setObject:paymentPass.deviceAccountNumberSuffix forKey:@"deviceAccountNumberSuffix"];
+            
+            NSString *activationState = @"";
+            
+            switch (paymentPass.activationState) {
+                case PKPaymentPassActivationStateActivated:
+                    activationState = @"activated";
+                    break;
+                case PKPaymentPassActivationStateActivating:
+                    activationState = @"activating";
+                    break;
+                case PKPaymentPassActivationStateSuspended:
+                    activationState = @"suspended";
+                    break;
+                case PKPaymentPassActivationStateDeactivated:
+                    activationState = @"deactivated";
+                default:
+                    break;
+            }
+            
+            [paymentMethodResponse setObject:activationState forKey:@"activationState"];
+        }
+        
+        
+        [paymentResponse setObject:paymentMethodResponse forKey:@"paymentMethod"];
+        
+    }
+    
+    
     PKContact *shippingContact = payment.shippingContact;
     if(shippingContact) {
         
