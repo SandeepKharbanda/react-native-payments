@@ -56,7 +56,14 @@ RCT_EXPORT_METHOD(createPaymentRequest: (NSDictionary *)methodData
     CNMutablePostalAddress *address = [[CNMutablePostalAddress alloc] init];
     NSDictionary *shippingAddress = requestedData[@"shippingInfo"];
     if (shippingAddress && [shippingAddress isKindOfClass:[NSDictionary class]]) {
-        address.street = shippingAddress[@"address_info"];
+        NSMutableArray *addresses = [NSMutableArray new];
+        if(shippingAddress[@"station_name"] && [shippingAddress[@"station_name"] length] > 0){
+            [addresses addObject:shippingAddress[@"station_name"]];
+        }
+        if(shippingAddress[@"address_info"] && [shippingAddress[@"address_info"] length] > 0){
+            [addresses addObject:shippingAddress[@"address_info"]];
+        }
+        address.street = [addresses componentsJoinedByString:@", "];
         contact.postalAddress = address;
     }
     self.paymentRequest.shippingContact = contact;
