@@ -27,7 +27,7 @@ RCT_EXPORT_MODULE()
 
 RCT_EXPORT_METHOD(createPaymentRequest: (NSDictionary *)methodData
                   details: (NSDictionary *)details
-                  countryData: (NSDictionary *) countryData
+                  requestedData: (NSDictionary *) requestedData
                   options: (NSDictionary *)options
                   callback: (RCTResponseSenderBlock)callback)
 {
@@ -51,10 +51,20 @@ RCT_EXPORT_METHOD(createPaymentRequest: (NSDictionary *)methodData
     
     [self setRequiredShippingAddressFieldsFromOptions:options];
     
+    PKContact *contact = [[PKContact alloc] init];
+    
+    CNMutablePostalAddress *address = [[CNMutablePostalAddress alloc] init];
+    NSDictionary *shippingAddress = requestedData[@"shippingInfo"];
+    if (shippingAddress && [shippingAddress isKindOfClass:[NSDictionary class]]) {
+        address.street = shippingAddress[@"address_info"];
+        contact.postalAddress = address;
+    }
+    self.paymentRequest.shippingContact = contact;
+    
     // Set options so that we can later access it.
     self.initialOptions = options;
     
-    self.countryData = countryData;
+    self.countryData = requestedData[@"country"];
     
     callback(@[[NSNull null]]);
 }
