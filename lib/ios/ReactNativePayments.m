@@ -541,7 +541,10 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
             [shippingAddress setObject:postalAddess.ISOCountryCode forKey:@"countryCode"];
         }
         
-        [shippingAddress setObject:shippingContact.emailAddress forKey:@"email"];
+        NSString *emailAddress = shippingContact.emailAddress;
+        if(emailAddress && [emailAddress length] > 0){
+            [shippingAddress setObject:emailAddress forKey:@"email"];
+        }
         
         CNPhoneNumber *shippingContactPhoneNumber = shippingContact.phoneNumber;
         if (shippingContactPhoneNumber) {
