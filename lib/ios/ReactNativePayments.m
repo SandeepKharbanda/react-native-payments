@@ -49,6 +49,7 @@ RCT_EXPORT_METHOD(createPaymentRequest: (NSDictionary *)methodData
     self.paymentRequest.paymentSummaryItems = [self getPaymentSummaryItemsFromDetails:details];
     self.paymentRequest.shippingMethods = [self getShippingMethodsFromDetails:details];
     
+    self.options = options;
     [self setRequiredShippingAddressFieldsFromOptions:options];
     
     PKContact *contact = [[PKContact alloc] init];
@@ -541,8 +542,10 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
             [shippingAddress setObject:postalAddess.ISOCountryCode forKey:@"countryCode"];
         }
         
-        NSString *emailAddress = shippingContact.emailAddress;
-        if(emailAddress && [emailAddress length] > 0){
+        id emailAddress = shippingContact.emailAddress;
+        RCTLogInfo(@"emailAddress %@", emailAddress);
+        
+        if(self.options[@"requestPayerEmail"] && emailAddress && [emailAddress isKindOfClass:[NSString class]] && [emailAddress length] > 0){
             [shippingAddress setObject:emailAddress forKey:@"email"];
         }
         
@@ -578,4 +581,5 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
 }
 
 @end
+
 

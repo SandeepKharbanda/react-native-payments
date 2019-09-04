@@ -16,6 +16,7 @@
 @property (nonatomic, strong) PKPaymentRequest *paymentRequest;
 @property (nonatomic, strong) NSDictionary *initialOptions;
 @property (nonatomic, strong) NSDictionary *countryData;
+@property (nonatomic, strong) NSDictionary *options;
 @property (nonatomic, strong) GatewayManager *gatewayManager;
 @property BOOL *hasGatewayParameters;
 @property (nonatomic, strong) PKPaymentAuthorizationViewController *viewController;
