@@ -56,17 +56,26 @@ RCT_EXPORT_METHOD(createPaymentRequest: (NSDictionary *)methodData
     PKContact *contact = [[PKContact alloc] init];
     
     CNMutablePostalAddress *address = [[CNMutablePostalAddress alloc] init];
+    
     NSDictionary *shippingAddress = requestedData[@"shippingInfo"];
     if (shippingAddress && [shippingAddress isKindOfClass:[NSDictionary class]]) {
-        NSMutableArray *addresses = [NSMutableArray new];
-        if(shippingAddress[@"station_name"] && [shippingAddress[@"station_name"] length] > 0){
-            [addresses addObject:shippingAddress[@"station_name"]];
-        }
-        if(shippingAddress[@"address_info"] && [shippingAddress[@"address_info"] length] > 0){
-            [addresses addObject:shippingAddress[@"address_info"]];
-        }
-        address.street = [addresses componentsJoinedByString:@", "];
+        address.street = shippingAddress[@"street"];
+        address.city = shippingAddress[@"city"];
+        address.country = shippingAddress[@"country"];
+        address.ISOCountryCode = shippingAddress[@"ISOCountryCode"];
+        address.state = shippingAddress[@"state"];
+        address.postalCode = shippingAddress[@"postalCode"];
         contact.postalAddress = address;
+    }
+    
+    NSDictionary *personInfo = requestedData[@"personInfo"];
+
+    if (personInfo && [personInfo isKindOfClass:[NSDictionary class]]) {
+        NSPersonNameComponents *name = [[NSPersonNameComponents alloc] init];
+        name.givenName = personInfo[@"givenName"];
+        name.middleName = personInfo[@"middleName"];
+        name.familyName = personInfo[@"familyName"];
+        contact.name = name;
     }
     self.paymentRequest.shippingContact = contact;
     
