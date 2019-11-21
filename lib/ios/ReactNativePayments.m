@@ -54,20 +54,21 @@ RCT_EXPORT_METHOD(createPaymentRequest: (NSDictionary *)methodData
     [self setRequiredShippingAddressFieldsFromOptions:options];
     
     PKContact *contact = [[PKContact alloc] init];
-    
-    CNMutablePostalAddress *address = [[CNMutablePostalAddress alloc] init];
-    
-    NSDictionary *shippingAddress = requestedData[@"shippingInfo"];
-    if (shippingAddress && [shippingAddress isKindOfClass:[NSDictionary class]]) {
-        address.street = shippingAddress[@"street"];
-        address.city = shippingAddress[@"city"];
-        address.country = shippingAddress[@"country"];
-        address.ISOCountryCode = shippingAddress[@"ISOCountryCode"];
-        address.state = shippingAddress[@"state"];
-        address.postalCode = shippingAddress[@"postalCode"];
-        contact.postalAddress = address;
+
+    if (options[@"requestShipping"]) {
+        CNMutablePostalAddress *address = [[CNMutablePostalAddress alloc] init];
+        NSDictionary *shippingAddress = requestedData[@"shippingInfo"];
+        if (shippingAddress && [shippingAddress isKindOfClass:[NSDictionary class]]) {
+            address.street = shippingAddress[@"street"];
+            address.city = shippingAddress[@"city"];
+            address.country = shippingAddress[@"country"];
+            address.ISOCountryCode = shippingAddress[@"ISOCountryCode"];
+            address.state = shippingAddress[@"state"];
+            address.postalCode = shippingAddress[@"postalCode"];
+            contact.postalAddress = address;
+        }
     }
-    
+
     NSDictionary *personInfo = requestedData[@"personInfo"];
 
     if (personInfo && [personInfo isKindOfClass:[NSDictionary class]]) {
@@ -187,67 +188,74 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
 
 -(void)paymentAuthorizationViewController:(PKPaymentAuthorizationViewController *)controller didAuthorizePayment:(PKPayment *)payment handler:(void (^)(PKPaymentAuthorizationResult * _Nonnull))completion API_AVAILABLE(ios(11.0)){
     
-    NSString *countryName = payment.shippingContact.postalAddress.country;
-    NSString *stateName = payment.shippingContact.postalAddress.state;
-    
-    NSString *currentCountryName = [self.countryData objectForKey:@"countryName"];
-    NSArray *currentCountryStates = [self.countryData objectForKey:@"state"];
-    
-    NSString *phoneNumber = payment.shippingContact.phoneNumber.stringValue;
-    NSMutableCharacterSet *characterSet =
-    [NSMutableCharacterSet characterSetWithCharactersInString:@"()- "];
-    NSArray *arrayOfComponents = [phoneNumber componentsSeparatedByCharactersInSet:characterSet];
-    phoneNumber = [arrayOfComponents componentsJoinedByString:@""];
-    
-    NSString *mobileLocalCode = [NSString stringWithFormat:@"%@", [self.countryData objectForKey:@"mobileLocalCode"]];
-    NSInteger mobileLocalNumberLength = [[self.countryData objectForKey:@"mobileLocalNumberLength"] integerValue];
-    
     NSMutableArray<NSError*> *errors = [[NSMutableArray alloc] init];
-    if(![countryName.lowercaseString isEqualToString:currentCountryName.lowercaseString]){
-        [errors addObject:[PKPaymentRequest paymentShippingAddressInvalidErrorWithKey:CNPostalAddressCountryKey localizedDescription:@"Selected country is not supported"]];
-    }
     
-    if(stateName && [stateName length] > 0 && currentCountryStates && [currentCountryStates isKindOfClass:[NSArray class]]){
-        BOOL isInvalidState = [currentCountryStates filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *  _Nullable  evaluatedObject, NSDictionary<NSString *,id> * _Nullable bindings) {
-            NSString *evaluatesStateName = evaluatedObject[@"StateName"];
-            return [stateName.lowercaseString isEqualToString:evaluatesStateName.lowercaseString];
-        }]].count == 0;
+    if (self.options[@"requestShipping"]) {
+        NSString *countryName = payment.shippingContact.postalAddress.country;
+        NSString *stateName = payment.shippingContact.postalAddress.state;
         
-        if(isInvalidState){
-            [errors addObject:[PKPaymentRequest paymentShippingAddressInvalidErrorWithKey:CNPostalAddressStateKey localizedDescription:@"State is invalid"]];
+        NSString *currentCountryName = [self.countryData objectForKey:@"countryName"];
+        NSArray *currentCountryStates = [self.countryData objectForKey:@"state"];
+        if(![countryName.lowercaseString isEqualToString:currentCountryName.lowercaseString]){
+            [errors addObject:[PKPaymentRequest paymentShippingAddressInvalidErrorWithKey:CNPostalAddressCountryKey localizedDescription:@"Selected country is not supported"]];
         }
-    }
-    
-    __block NSInteger maxMobileLocalCodeLength = 0;
-    
-    NSArray *mobileLocalCodes;
-    if(mobileLocalCode && [mobileLocalCode length] > 0){
-        mobileLocalCodes = [mobileLocalCode componentsSeparatedByString:@","];
-        [mobileLocalCodes enumerateObjectsUsingBlock:^(NSString  * _Nonnull mobileLocalCode, NSUInteger idx, BOOL * _Nonnull stop) {
-            if(mobileLocalCode.length > maxMobileLocalCodeLength){
-                maxMobileLocalCodeLength = mobileLocalCode.length;
+
+        if(stateName && [stateName length] > 0 && currentCountryStates && [currentCountryStates isKindOfClass:[NSArray class]]){
+            BOOL isInvalidState = [currentCountryStates filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *  _Nullable  evaluatedObject, NSDictionary<NSString *,id> * _Nullable bindings) {
+                NSString *evaluatesStateName = evaluatedObject[@"StateName"];
+                return [stateName.lowercaseString isEqualToString:evaluatesStateName.lowercaseString];
+            }]].count == 0;
+
+            if(isInvalidState){
+                [errors addObject:[PKPaymentRequest paymentShippingAddressInvalidErrorWithKey:CNPostalAddressStateKey localizedDescription:@"State is invalid"]];
             }
-        }];
-    }
-    
-    NSInteger maxMobileLength = maxMobileLocalCodeLength + mobileLocalNumberLength;
-    NSString *localCodeNumber = @"";
-    if([phoneNumber length] > maxMobileLocalCodeLength) {
-        localCodeNumber = [phoneNumber substringWithRange: NSMakeRange(0, maxMobileLocalCodeLength)];
-    }
-    
-    BOOL isValidLocalCode = [mobileLocalCodes containsObject:localCodeNumber];
-    
-    if(([phoneNumber length] < maxMobileLength) || !( isValidLocalCode && [phoneNumber length] == maxMobileLength)){
-        
-        NSString *desc = [NSString stringWithFormat:@"Phone number must start with (%@)", mobileLocalCode];
-        
-        NSInteger i = 0;
-        while(i < mobileLocalNumberLength) {
-            desc = [desc stringByAppendingFormat:@"X"];
-            i++;
         }
-        [errors addObject:[PKPaymentRequest paymentContactInvalidErrorWithContactField:PKContactFieldPhoneNumber localizedDescription: desc]];
+    }
+        
+    
+    if (self.options[@"requestPayerPhone"]) {
+        
+        NSString *phoneNumber = payment.shippingContact.phoneNumber.stringValue;
+        NSMutableCharacterSet *characterSet =
+        [NSMutableCharacterSet characterSetWithCharactersInString:@"()- "];
+        NSArray *arrayOfComponents = [phoneNumber componentsSeparatedByCharactersInSet:characterSet];
+        phoneNumber = [arrayOfComponents componentsJoinedByString:@""];
+        
+        NSString *mobileLocalCode = [NSString stringWithFormat:@"%@", [self.countryData objectForKey:@"mobileLocalCode"]];
+        NSInteger mobileLocalNumberLength = [[self.countryData objectForKey:@"mobileLocalNumberLength"] integerValue];
+
+    
+        __block NSInteger maxMobileLocalCodeLength = 0;
+
+        NSArray *mobileLocalCodes;
+        if(mobileLocalCode && [mobileLocalCode length] > 0){
+            mobileLocalCodes = [mobileLocalCode componentsSeparatedByString:@","];
+            [mobileLocalCodes enumerateObjectsUsingBlock:^(NSString  * _Nonnull mobileLocalCode, NSUInteger idx, BOOL * _Nonnull stop) {
+                if(mobileLocalCode.length > maxMobileLocalCodeLength){
+                    maxMobileLocalCodeLength = mobileLocalCode.length;
+                }
+            }];
+        }
+        
+        NSInteger maxMobileLength = maxMobileLocalCodeLength + mobileLocalNumberLength;
+        NSString *localCodeNumber = @"";
+        if([phoneNumber length] > maxMobileLocalCodeLength) {
+            localCodeNumber = [phoneNumber substringWithRange: NSMakeRange(0, maxMobileLocalCodeLength)];
+        }
+        
+        BOOL isValidLocalCode = [mobileLocalCodes containsObject:localCodeNumber];
+        
+        if(([phoneNumber length] < maxMobileLength) || !( isValidLocalCode && [phoneNumber length] == maxMobileLength)){
+            
+            NSString *desc = [NSString stringWithFormat:@"Phone number must start with (%@)", mobileLocalCode];
+            
+            NSInteger i = 0;
+            while(i < mobileLocalNumberLength) {
+                desc = [desc stringByAppendingFormat:@"X"];
+                i++;
+            }
+            [errors addObject:[PKPaymentRequest paymentContactInvalidErrorWithContactField:PKContactFieldPhoneNumber localizedDescription: desc]];
+        }
     }
     
     if([errors count] > 0){
@@ -591,5 +599,6 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
 }
 
 @end
+
 
 
