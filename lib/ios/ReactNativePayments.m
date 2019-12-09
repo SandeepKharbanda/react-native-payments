@@ -191,12 +191,12 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
     NSMutableArray<NSError*> *errors = [[NSMutableArray alloc] init];
     
     if (self.options[@"requestShipping"]) {
-        NSString *countryCode = payment.shippingContact.postalAddress.ISOCountryCode;
+        NSString *ISOCountryCode = payment.shippingContact.postalAddress.ISOCountryCode;
         NSString *stateName = payment.shippingContact.postalAddress.state;
         
-        NSString *currentCountryCode = [self.countryData objectForKey:@"countryCode"];
+        NSString *currentCountryCode = [self.countryData objectForKey:@"countrySHORT"];
         NSArray *currentCountryStates = [self.countryData objectForKey:@"state"];
-        if(![countryCode.lowercaseString isEqualToString:currentCountryCode.lowercaseString]){
+        if(currentCountryCode && [currentCountryCode length] > 0 && ![ISOCountryCode.lowercaseString isEqualToString:currentCountryCode.lowercaseString]){
             [errors addObject:[PKPaymentRequest paymentShippingAddressInvalidErrorWithKey:CNPostalAddressCountryKey localizedDescription:@"Selected country is not supported"]];
         }
         
