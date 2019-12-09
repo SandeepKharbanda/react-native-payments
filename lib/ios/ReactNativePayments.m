@@ -191,21 +191,21 @@ RCT_EXPORT_METHOD(handleDetailsUpdate: (NSDictionary *)details
     NSMutableArray<NSError*> *errors = [[NSMutableArray alloc] init];
     
     if (self.options[@"requestShipping"]) {
-        NSString *countryName = payment.shippingContact.postalAddress.country;
+        NSString *countryCode = payment.shippingContact.postalAddress.ISOCountryCode;
         NSString *stateName = payment.shippingContact.postalAddress.state;
         
-        NSString *currentCountryName = [self.countryData objectForKey:@"countryName"];
+        NSString *currentCountryCode = [self.countryData objectForKey:@"countryCode"];
         NSArray *currentCountryStates = [self.countryData objectForKey:@"state"];
-        if(![countryName.lowercaseString isEqualToString:currentCountryName.lowercaseString]){
+        if(![countryCode.lowercaseString isEqualToString:currentCountryCode.lowercaseString]){
             [errors addObject:[PKPaymentRequest paymentShippingAddressInvalidErrorWithKey:CNPostalAddressCountryKey localizedDescription:@"Selected country is not supported"]];
         }
-
+        
         if(stateName && [stateName length] > 0 && currentCountryStates && [currentCountryStates isKindOfClass:[NSArray class]]){
             BOOL isInvalidState = [currentCountryStates filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(NSDictionary *  _Nullable  evaluatedObject, NSDictionary<NSString *,id> * _Nullable bindings) {
                 NSString *evaluatesStateName = evaluatedObject[@"StateName"];
                 return [stateName.lowercaseString isEqualToString:evaluatesStateName.lowercaseString];
             }]].count == 0;
-
+            
             if(isInvalidState){
                 [errors addObject:[PKPaymentRequest paymentShippingAddressInvalidErrorWithKey:CNPostalAddressStateKey localizedDescription:@"State is invalid"]];
             }
