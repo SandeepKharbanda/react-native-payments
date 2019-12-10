@@ -54,7 +54,6 @@ RCT_EXPORT_METHOD(createPaymentRequest: (NSDictionary *)methodData
     [self setRequiredShippingAddressFieldsFromOptions:options];
     
     PKContact *contact = [[PKContact alloc] init];
-
     if (options[@"requestShipping"]) {
         CNMutablePostalAddress *address = [[CNMutablePostalAddress alloc] init];
         NSDictionary *shippingAddress = requestedData[@"shippingInfo"];
@@ -68,9 +67,16 @@ RCT_EXPORT_METHOD(createPaymentRequest: (NSDictionary *)methodData
             contact.postalAddress = address;
         }
     }
-
+    
+    NSDictionary *phoneNumberInfo = requestedData[@"phoneNumberInfo"];
+    if (options[@"requestPayerPhone"] && phoneNumberInfo && [phoneNumberInfo isKindOfClass:[NSDictionary class]]) {
+        NSString *phoneNumber = [phoneNumberInfo objectForKey:@"phone"];
+        if(phoneNumber && [phoneNumber length] > 0){
+            contact.phoneNumber = [CNPhoneNumber phoneNumberWithStringValue:phoneNumber];
+        }
+    }
+    
     NSDictionary *personInfo = requestedData[@"personInfo"];
-
     if (personInfo && [personInfo isKindOfClass:[NSDictionary class]]) {
         NSPersonNameComponents *name = [[NSPersonNameComponents alloc] init];
         name.givenName = personInfo[@"givenName"];
